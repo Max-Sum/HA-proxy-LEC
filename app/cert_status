@@ -27,10 +27,10 @@ function print_cert_info {
 }
 
 echo '##### Certificate status #####'
-for cert in /etc/haproxy/certs/*/cert.pem; do
+for cert in /etc/haproxy/certs/.le/*/cert.pem; do
     [[ -e "$cert" ]] || continue
     # Verify the certificate with OpenSSL.
-    openssl verify -CAfile "${cert%full.pem}chain.pem" "$cert"
+    openssl verify -CAfile "${cert%cert.pem}chain.pem" "$cert"
 
     # Print certificate info.
     print_cert_info "$cert"

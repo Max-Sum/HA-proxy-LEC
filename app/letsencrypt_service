@@ -124,11 +124,11 @@ function update_certs {
             # Use staging Let's Encrypt ACME end point
             acme_ca_uri="$LE_STAGING_URI"
             # Prefix test certificate directory with _test_
-            certificate_dir="/etc/haproxy/certs/_test_$base_domain"
+            certificate_dir="/etc/haproxy/certs/.le/_test_$base_domain"
         else
             # Use default or user provided ACME end point
             acme_ca_uri="$ACME_CA_URI"
-            certificate_dir="/etc/haproxy/certs/$base_domain"
+            certificate_dir="/etc/haproxy/certs/.le/$base_domain"
         fi
 
         account_varname="LETSENCRYPT_${cid}_ACCOUNT_ALIAS"
