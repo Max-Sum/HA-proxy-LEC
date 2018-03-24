@@ -124,7 +124,7 @@ function reload_haproxy {
     else
         if [[ -n "${_ha_proxy_container:-}" ]]; then
             echo "Reloading HA-proxy (${_ha_proxy_container})..."
-            docker_kill "${_docker_gen_container}" SIGHUP
+            docker_kill "${_ha_proxy_container}" SIGHUP
             docker_exec "${_ha_proxy_container}" \
                         '[ "sh", "-c", "kill -USR2 $(cat /var/run/haproxy.pid)" ]'
             [[ $? -eq 1 ]] && echo "$(date "+%Y/%m/%d %T"), Error: can't reload ha-proxy." >&2
