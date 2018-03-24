@@ -1,6 +1,6 @@
 FROM alpine:3.7
 
-LABEL maintainer="Yves Blusseau <90z7oey02@sneakemail.com> (@blusseau)"
+LABEL maintainer="Max Sum <max@lolycutlure.com>"
 
 ENV DEBUG=false \
     DOCKER_GEN_VERSION=0.7.4 \
@@ -26,6 +26,8 @@ RUN chmod +rx /app/install_simp_le.sh && sync && /app/install_simp_le.sh && rm -
 COPY /app/ /app/
 
 WORKDIR /app
+
+VOLUME [ "/webroot" ]
 
 ENTRYPOINT [ "/bin/bash", "/app/entrypoint.sh" ]
 CMD [ "/bin/bash", "/app/start.sh" ]

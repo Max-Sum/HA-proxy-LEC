@@ -27,21 +27,21 @@ function print_cert_info {
 }
 
 echo '##### Certificate status #####'
-for cert in /etc/nginx/certs/*/fullchain.pem; do
+for cert in /etc/haproxy/certs/*/cert.pem; do
     [[ -e "$cert" ]] || continue
     # Verify the certificate with OpenSSL.
-    openssl verify -CAfile "${cert%fullchain.pem}chain.pem" "$cert"
+    openssl verify -CAfile "${cert%full.pem}chain.pem" "$cert"
 
     # Print certificate info.
     print_cert_info "$cert"
 
-    # Find the .crt files in /etc/nginx/certs which are
+    # Find the .pem files in /etc/haproxy/certs which are
     # symlinks pointing to the current certificate.
     unset symlinked_domains
-    for symlink in /etc/nginx/certs/*.crt; do
+    for symlink in /etc/haproxy/certs/*.pem; do
         [[ -e "$symlink" ]] || continue
         if [[ "$(readlink -f "$symlink")" == "$cert" ]]; then
-            domain="$(echo "${symlink%.crt}" | sed 's#/etc/nginx/certs/##g')"
+            domain="$(echo "${symlink%.pem}" | sed 's#/etc/haproxy/certs/##g')"
             symlinked_domains+=("$domain")
         fi
     done

@@ -7,6 +7,7 @@ source /app/functions.sh
 
 seconds_to_wait=3600
 ACME_CA_URI="${ACME_CA_URI:-https://acme-v01.api.letsencrypt.org/directory}"
+LE_STAGING_URI="https://acme-staging.api.letsencrypt.org/directory"
 DEFAULT_KEY_SIZE=4096
 REUSE_ACCOUNT_KEYS="$(lc ${REUSE_ACCOUNT_KEYS:-true})"
 REUSE_PRIVATE_KEYS="$(lc ${REUSE_PRIVATE_KEYS:-false})"
@@ -14,6 +15,11 @@ REUSE_PRIVATE_KEYS="$(lc ${REUSE_PRIVATE_KEYS:-false})"
 function create_link {
     local -r source=${1?missing source argument}
     local -r target=${2?missing target argument}
+
+    if [[ ! -f "$source" ]]; then
+      [[ $DEBUG == true ]] && echo "$source does not exist"
+      return 1
+    fi
     if [[ -f "$target" ]] && [[ "$(readlink "$target")" == "$source" ]]; then
       [[ $DEBUG == true ]] && echo "$target already linked to $source"
       return 1
@@ -22,41 +28,17 @@ function create_link {
     fi
 }
 
-function create_links {
-    local -r base_domain=${1?missing base_domain argument}
-    local -r domain=${2?missing base_domain argument}
-
-    if [[ ! -f "/etc/nginx/certs/$base_domain/fullchain.pem" || \
-          ! -f "/etc/nginx/certs/$base_domain/key.pem" ]]; then
-        return 1
-    fi
-    local return_code=1
-    create_link "./$base_domain/fullchain.pem" "/etc/nginx/certs/$domain.crt"
-    return_code=$(( $return_code & $? ))
-    create_link "./$base_domain/key.pem" "/etc/nginx/certs/$domain.key"
-    return_code=$(( $return_code & $? ))
-    if [[ -f "/etc/nginx/certs/dhparam.pem" ]]; then
-        create_link ./dhparam.pem "/etc/nginx/certs/$domain.dhparam.pem"
-        return_code=$(( $return_code & $? ))
-    fi
-    if [[ -f "/etc/nginx/certs/$base_domain/chain.pem" ]]; then
-        create_link "./$base_domain/chain.pem" "/etc/nginx/certs/$domain.chain.pem"
-        return_code=$(( $return_code & $? ))
-    fi
-    return $return_code
-}
-
 function cleanup_links {
     local -a ENABLED_DOMAINS
     local -a SYMLINKED_DOMAINS
     local -a DISABLED_DOMAINS
 
     # Create an array containing domains for which a
-    # symlinked private key exists in /etc/nginx/certs.
-    for symlinked_domain in /etc/nginx/certs/*.crt; do
+    # symlinked private key exists in /etc/haproxy/certs.
+    for symlinked_domain in /etc/haproxy/certs/*.pem; do
         [[ -f "$symlinked_domain" ]] || continue
         symlinked_domain="${symlinked_domain##*/}"
-        symlinked_domain="${symlinked_domain%*.crt}"
+        symlinked_domain="${symlinked_domain%*.pem}"
         SYMLINKED_DOMAINS+=("$symlinked_domain")
     done
     [[ $DEBUG == true ]] && echo "Symlinked domains: ${SYMLINKED_DOMAINS[*]}"
@@ -76,7 +58,7 @@ function cleanup_links {
     [[ $DEBUG == true ]] && echo "Enabled domains: ${ENABLED_DOMAINS[*]}"
 
     # Create an array containing only domains for which a symlinked private key exists
-    # in /etc/nginx/certs but that no longer have a corresponding LETSENCRYPT_HOST set
+    # in /etc/haproxy/certs but that no longer have a corresponding LETSENCRYPT_HOST set
     # on an active container.
     if [[ ${#SYMLINKED_DOMAINS[@]} -gt 0 ]]; then
         mapfile -t DISABLED_DOMAINS < <(echo "${SYMLINKED_DOMAINS[@]}" \
@@ -90,13 +72,11 @@ function cleanup_links {
     # Return 1 if nothing was removed and 0 otherwise.
     if [[ ${#DISABLED_DOMAINS[@]} -gt 0 ]]; then
       for disabled_domain in "${DISABLED_DOMAINS[@]}"; do
-          for extension in .crt .key .dhparam.pem .chain.pem; do
-              file="${disabled_domain}${extension}"
-              if [[ -n "${file// }" ]] && [[ -L "/etc/nginx/certs/${file}" ]]; then
-                  rm -f "/etc/nginx/certs/${file}"
+        file="${disabled_domain}.pem"
+        if [[ -n "${file// }" ]] && [[ -L "/etc/haproxy/certs/${file}" ]]; then
+            rm -f "/etc/haproxy/certs/${file}"
               fi
           done
-      done
       return 0
     else
       return 1
@@ -105,7 +85,7 @@ function cleanup_links {
 
 function update_certs {
 
-    check_nginx_proxy_container_run || return
+    check_ha_proxy_container_run || return
 
     [[ -f "$DIR"/letsencrypt_service_data ]] || return
 
@@ -114,7 +94,7 @@ function update_certs {
     # shellcheck source=/dev/null
     source "$DIR"/letsencrypt_service_data
 
-    should_reload_nginx='false'
+    should_reload_haproxy='false'
     for cid in "${LETSENCRYPT_CONTAINERS[@]}"; do
         # Derive host and email variable names
         host_varname="LETSENCRYPT_${cid}_HOST"
@@ -139,17 +119,16 @@ function update_certs {
         fi
 
         test_certificate_varname="LETSENCRYPT_${cid}_TEST"
-        le_staging_uri="https://acme-staging.api.letsencrypt.org/directory"
         if [[ $(lc "${!test_certificate_varname:-}") == true ]] || \
-          [[ "$ACME_CA_URI" == "$le_staging_uri" ]]; then
+          [[ "$ACME_CA_URI" == "$LE_STAGING_URI" ]]; then
             # Use staging Let's Encrypt ACME end point
-            acme_ca_uri="$le_staging_uri"
+            acme_ca_uri="$LE_STAGING_URI"
             # Prefix test certificate directory with _test_
-            certificate_dir="/etc/nginx/certs/_test_$base_domain"
+            certificate_dir="/etc/haproxy/certs/_test_$base_domain"
         else
             # Use default or user provided ACME end point
             acme_ca_uri="$ACME_CA_URI"
-            certificate_dir="/etc/nginx/certs/$base_domain"
+            certificate_dir="/etc/haproxy/certs/$base_domain"
         fi
 
         account_varname="LETSENCRYPT_${cid}_ACCOUNT_ALIAS"
@@ -169,8 +148,6 @@ function update_certs {
         for domain in "${!hosts_array}"; do
             # Add all the domains to certificate
             params_d_str+=" -d $domain"
-            # Add location configuration for the domain
-            add_location_configuration "$domain" || reload_nginx
         done
 
         # The ACME account key full path is derived from the endpoint URI
@@ -195,9 +172,14 @@ function update_certs {
             $params_d_str \
             --cert_key_size=$cert_keysize \
             --server=$acme_ca_uri \
-            --default_root /usr/share/nginx/html/
+            --default_root /webroot
 
         simp_le_return=$?
+
+        # concatenate to use in HAProxy
+        if [[ $simp_le_return -ne 2]]; then
+          cat fullchain.pem key.pem > full.pem
+        fi
 
         if [[ $REUSE_ACCOUNT_KEYS == true ]]; then
             # If the account key to be reused does not exist yet, copy it
@@ -211,23 +193,20 @@ function update_certs {
 
         popd || return
 
+        # Link for SAN certificates
         if [[ $simp_le_return -ne 2 ]]; then
           for domain in "${!hosts_array}"; do
-            if [[ "$acme_ca_uri" == "$le_staging_uri" ]]; then
-              create_links "_test_$base_domain" "$domain" && should_reload_nginx='true'
-            else
-              create_links "$base_domain" "$domain" && should_reload_nginx='true'
-            fi
+            create_link "${certificate_dir}/full.pem" "/etc/haproxy/${domain}.pem" && should_reload_haproxy='true'
           done
-          # Queue nginx reload if a certificate was issued or renewed
-          [[ $simp_le_return -eq 0 ]] && should_reload_nginx='true'
+          # Queue haproxy reload if a certificate was issued or renewed
+          [[ $simp_le_return -eq 0 ]] && should_reload_haproxy='true'
         fi
 
     done
 
-    cleanup_links && should_reload_nginx='true'
+    cleanup_links && should_reload_haproxy='true'
 
-    [[ "$should_reload_nginx" == 'true' ]] && reload_nginx
+    [[ "$should_reload_haproxy" == 'true' ]] && reload_haproxy
 }
 
 # Allow the script functions to be sourced without starting the Service Loop.

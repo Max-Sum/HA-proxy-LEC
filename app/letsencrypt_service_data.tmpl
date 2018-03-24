@@ -1,15 +1,19 @@
-LETSENCRYPT_CONTAINERS=({{ range $hosts, $containers := groupBy $ "Env.LETSENCRYPT_HOST" }}{{ if trim $hosts }}{{ range $container := $containers }} '{{ printf "%.12s" $container.ID }}' {{ end }}{{ end }}{{ end }})
+LETSENCRYPT_CONTAINERS=({{ range $hosts, $containers := groupByLabel $ "ha-proxy.le.host" }}{{ if trim $hosts }}'{{ printf "%.12s" (first $containers).ID }}' {{ end }}{{ end }})
 
-{{ range $hosts, $containers := groupBy $ "Env.LETSENCRYPT_HOST" }}
+{{ range $hosts, $containers := groupByLabel $ "ha-proxy.le.host" }}
 
-{{ $hosts := trimSuffix "," $hosts }}
+{{ $cid := printf "%.12s" (first $containers).ID }}
+{{/* Get Let's Encrypt infomation */}}
+{{ $hosts   := trimSuffix "," $hosts }}
+{{ $email := first (keys (groupByLabel $containers "ha-proxy.le.email"))}}
+{{ $keysize := first (keys (groupByLabel $containers "ha-proxy.le.keysize"))}}
+{{ $test := first (keys (groupByLabel $containers "ha-proxy.le.test"))}}
+{{ $alias := first (keys (groupByLabel $containers "ha-proxy.le.account_alias"))}}
 
-{{ range $container := $containers }}{{ $cid := printf "%.12s" $container.ID }}
-LETSENCRYPT_{{ $cid }}_HOST=( {{ range $host := split $hosts "," }}{{ $host := trim $host }}'{{ $host }}' {{ end }})
-LETSENCRYPT_{{ $cid }}_EMAIL="{{ $container.Env.LETSENCRYPT_EMAIL }}"
-LETSENCRYPT_{{ $cid }}_KEYSIZE="{{ $container.Env.LETSENCRYPT_KEYSIZE }}"
-LETSENCRYPT_{{ $cid }}_TEST="{{ $container.Env.LETSENCRYPT_TEST }}"
-LETSENCRYPT_{{ $cid }}_ACCOUNT_ALIAS="{{ $container.Env.LETSENCRYPT_ACCOUNT_ALIAS }}"
-{{ end }}
+LETSENCRYPT_{{ $cid }}_HOST=( {{ range $host := split $hosts "," }}{{ $host := trim $host }}'{{ js $host }}' {{ end }})
+LETSENCRYPT_{{ $cid }}_EMAIL="{{ $email }}"
+LETSENCRYPT_{{ $cid }}_KEYSIZE="{{ $keysize }}"
+LETSENCRYPT_{{ $cid }}_TEST="{{ $test }}"
+LETSENCRYPT_{{ $cid }}_ACCOUNT_ALIAS="{{ $alias }}"
 
 {{ end }}

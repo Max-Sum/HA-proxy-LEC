@@ -68,10 +68,10 @@ function check_dh_group {
        echo "Error: invalid Diffie-Hellman size of $DHPARAM_BITS !" >&2
        exit 1
     fi
-    if [[ ! -f /etc/nginx/certs/dhparam.pem ]]; then
+    if [[ ! -f /etc/haproxy/certs/dhparam.pem ]]; then
         echo "Creating Diffie-Hellman group (can take several minutes...)"
-        openssl dhparam -out /etc/nginx/certs/.dhparam.pem.tmp $DHPARAM_BITS
-        mv /etc/nginx/certs/.dhparam.pem.tmp /etc/nginx/certs/dhparam.pem || exit 1
+        openssl dhparam -out /etc/haproxy/certs/.dhparam.pem.tmp $DHPARAM_BITS
+        mv /etc/haproxy/certs/.dhparam.pem.tmp /etc/haproxy/certs/dhparam.pem || exit 1
     fi
 }
 
@@ -81,23 +81,22 @@ source /app/functions.sh
 
 if [[ "$*" == "/bin/bash /app/start.sh" ]]; then
     check_docker_socket
-    if [[ -z "$(get_nginx_proxy_container)" ]]; then
-        echo "Error: can't get nginx-proxy container ID !" >&2
+    if [[ -z "$(get_ha_proxy_container)" ]]; then
+        echo "Error: can't get HA-proxy / HAProxy container ID !" >&2
         echo "Check that you are doing one of the following :" >&2
-        echo -e "\t- Use the --volumes-from option to mount volumes from the nginx-proxy container." >&2
-        echo -e "\t- Set the NGINX_PROXY_CONTAINER env var on the letsencrypt-companion container to the name of the nginx-proxy container." >&2
-        echo -e "\t- Label the nginx-proxy container to use with 'com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy'." >&2
+        echo -e "\t- Use the --volumes-from option to mount volumes from the HA-proxy / HAProxy container." >&2
+        echo -e "\t- Set the HA_PROXY_CONTAINER env var on the letsencrypt-companion container to the name of the HA-proxy / HAProxy container." >&2
+        echo -e "\t- Label the HA-proxy / HAProxy container to use with 'ha-proxy.le.haproxy'." >&2
         exit 1
-    elif [[ -z "$(get_docker_gen_container)" ]] && ! is_docker_gen_container "$(get_nginx_proxy_container)"; then
+    elif ! is_docker_gen_container "$(get_ha_proxy_container)" && [[ -z "$(get_docker_gen_container)" ]]; then
         echo "Error: can't get docker-gen container id !" >&2
         echo "If you are running a three containers setup, check that you are doing one of the following :" >&2
-        echo -e "\t- Set the NGINX_DOCKER_GEN_CONTAINER env var on the letsencrypt-companion container to the name of the docker-gen container." >&2
-        echo -e "\t- Label the docker-gen container to use with 'com.github.jrcs.letsencrypt_nginx_proxy_companion.docker_gen.'" >&2
+        echo -e "\t- Set the DOCKER_GEN_CONTAINER env var on the letsencrypt-companion container to the name of the docker-gen container." >&2
+        echo -e "\t- Label the docker-gen container to use with 'ha-proxy.le.docker_gen.'" >&2
         exit 1
     fi
-    check_writable_directory '/etc/nginx/certs'
-    check_writable_directory '/etc/nginx/vhost.d'
-    check_writable_directory '/usr/share/nginx/html'
+    check_writable_directory '/etc/haproxy/certs'
+    check_writable_directory '/webroot'
     check_dh_group
 fi
 
