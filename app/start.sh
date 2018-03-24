@@ -13,6 +13,9 @@ term_handler() {
 
 trap 'term_handler' INT QUIT TERM
 
+# A hack to prevent docker-gen from miss firing
+sleep 2s
+
 /app/letsencrypt_service &
 letsencrypt_service_pid=$!
 
