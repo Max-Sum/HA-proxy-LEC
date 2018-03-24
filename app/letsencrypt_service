@@ -177,7 +177,7 @@ function update_certs {
         simp_le_return=$?
 
         # concatenate to use in HAProxy
-        if [[ $simp_le_return -ne 2]]; then
+        if [[ $simp_le_return -ne 2 ]]; then
           cat fullchain.pem key.pem > full.pem
         fi
 
