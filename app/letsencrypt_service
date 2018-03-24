@@ -196,7 +196,7 @@ function update_certs {
         # Link for SAN certificates
         if [[ $simp_le_return -ne 2 ]]; then
           for domain in "${!hosts_array}"; do
-            create_link "${certificate_dir}/full.pem" "/etc/haproxy/${domain}.pem" && should_reload_haproxy='true'
+            create_link "${certificate_dir}/full.pem" "/etc/haproxy/certs/${domain}.pem" && should_reload_haproxy='true'
           done
           # Queue haproxy reload if a certificate was issued or renewed
           [[ $simp_le_return -eq 0 ]] && should_reload_haproxy='true'
