@@ -178,7 +178,10 @@ function update_certs {
 
         # concatenate to use in HAProxy
         if [[ $simp_le_return -ne 2 ]]; then
-          cat fullchain.pem key.pem > full.pem
+          cat fullchain.pem > full.pem
+          echo "" >> full.pem
+          cat key.pem >> full.pem
+          echo "" >> full.pem
         fi
 
         if [[ $REUSE_ACCOUNT_KEYS == true ]]; then
