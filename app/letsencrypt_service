@@ -37,10 +37,9 @@ function cleanup_links {
     # symlinked private key exists in /etc/haproxy/certs.
     for symlinked_domain in /etc/haproxy/certs/*.pem; do
         # Check if valid link
-        if [[ -L "$symlinked_domain" ]] \
-        && [[ $(readlink "/etc/haproxy/certs/$symlinked_domain.pem") == /etc/haproxy/certs/.le/* ]]; then
-            continue
-        fi
+        [[ -L "$symlinked_domain" ]] \
+        && [[ $(readlink "/etc/haproxy/certs/$symlinked_domain.pem") != /etc/haproxy/certs/.le/* ]] \
+        || continue
         symlinked_domain="${symlinked_domain##*/}"
         symlinked_domain="${symlinked_domain%*.pem}"
         SYMLINKED_DOMAINS+=("$symlinked_domain")
