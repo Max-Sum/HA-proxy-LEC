@@ -5,10 +5,10 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 source /app/functions.sh
 
-seconds_to_wait=3600
+seconds_to_wait=21600
 ACME_CA_URI="${ACME_CA_URI:-https://acme-v01.api.letsencrypt.org/directory}"
 LE_STAGING_URI="https://acme-staging.api.letsencrypt.org/directory"
-DEFAULT_KEY_SIZE=4096
+DEFAULT_KEY_SIZE=2048
 REUSE_ACCOUNT_KEYS="$(lc ${REUSE_ACCOUNT_KEYS:-true})"
 REUSE_PRIVATE_KEYS="$(lc ${REUSE_PRIVATE_KEYS:-false})"
 
