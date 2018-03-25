@@ -36,7 +36,7 @@ function cleanup_links {
     # Create an array containing domains for which a
     # symlinked private key exists in /etc/haproxy/certs.
     for symlinked_domain in /etc/haproxy/certs/*.pem; do
-        [[ -f "$symlinked_domain" ]] || continue
+        [[ -L "$symlinked_domain" ]] || continue
         symlinked_domain="${symlinked_domain##*/}"
         symlinked_domain="${symlinked_domain%*.pem}"
         SYMLINKED_DOMAINS+=("$symlinked_domain")
